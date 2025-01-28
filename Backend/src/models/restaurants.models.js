@@ -3,8 +3,11 @@ import { Schema } from "mongoose"
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-const userSchema = new mongoose.Schema({
-    
+const restaurantSchema = new mongoose.Schema({
+    name: {
+        type: String,
+        required: true,
+    },
     email: {
         type: String,
         required: true,
@@ -13,14 +16,19 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: true,    
-        },
+        required: true,
+        unique: true,
+    },
+    pincode: {
+        type: Number,
+        required: true,
+    }
 }, {
     timestamps: true
 }) 
 
-//mongoose middleware hooks
-userSchema.pre( //pre middleware-event to write a function before saving the document -plugins
+//morestaurantose middleware hooks
+restaurantSchema.pre( //pre middleware-event to write a function before saving the document -plugins
     "save",  //type of document middleware , querry middleware - findOne etc.
     async function(next){
         if(this.isModified("password")){
@@ -38,15 +46,15 @@ userSchema.pre( //pre middleware-event to write a function before saving the doc
     }
 );
 
-userSchema.methods.isPasswordCorrect = async function(password) {
+restaurantSchema.methods.isPasswordCorrect = async function(password) {
     return await bcrypt.compare(password, this.password);
 }
 
-userSchema.methods.generateAccessToken = function() {
+restaurantSchema.methods.generateAccessToken = function() {
     return jwt.sign({   //payload
         _id: this._id,
         email: this.email,
-        // username: this.username,
+        // restaurantname: this.restaurantname,
         // fullname: this.fullname,
     },
     process.env.ACCESS_TOKEN_SECRET,
@@ -56,4 +64,4 @@ userSchema.methods.generateAccessToken = function() {
 )
 }
 
-export const User = mongoose.model("User", userSchema)
+export const Restaurant = mongoose.model("Restaurant", restaurantSchema)
