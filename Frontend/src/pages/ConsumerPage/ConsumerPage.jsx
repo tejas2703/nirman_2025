@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
-import Navbar from '../../Components/Consumer/Navbar'
-import Sidebar from '../../Components/Consumer/Sidebar';
+import Navbar from '../../Components/Consumer/Navbar';
+import Sidebar from '../../Components/Consumer/sidebar';
 import Header_1 from "../../Components/Consumer/Header_1";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';

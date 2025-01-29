@@ -252,19 +252,21 @@ const Login = () => {
 
   return (
 
-    <div className="flex justify-center items-center w-full bg-green-100 animate-fadeIn">
-      <div className="w-full p-6 bg-green-100 rounded-lg shadow-lg">
-        {/* Title and Description */}
-        <h1 className="text-5xl font-bold text-center mb-4 text-green-900 flex items-center justify-center">
-          <FaMapMarkerAlt className="text-5xl mr-2 text-green-600" />
-          Access your dashboard
-        </h1>
-        <p className="text-2xl text-center mb-8 text-green-600 font-bold my-6">
-          Select your role and access specialized features
-        </p>
+<div className="flex justify-center items-center w-full bg-green-100 animate-fadeIn mt-[-1200px] ">
+<div className="w-full p-4 sm:p-6 bg-green-100 rounded-lg shadow-lg">
+  {/* Title and Description */}
+  <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-4 text-green-900 flex items-center justify-center">
+    <FaMapMarkerAlt className="text-3xl sm:text-4xl md:text-5xl mr-2 text-green-600" />
+    Access your dashboard
+  </h1>
+  <p className="text-lg sm:text-xl md:text-2xl text-center mb-6 sm:mb-8 text-green-600 font-bold my-4">
+    Select your role and access specialized features
+  </p>
+
+
 
         {/* Login and Sign Up Forms */}
-        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-4 gap-6 mt:-[-1200px]">
 
 
 
