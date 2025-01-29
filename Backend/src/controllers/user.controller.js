@@ -20,6 +20,8 @@ const generateAccessToken = async(userId) => {
     }
 } 
 
+import { sendTwilioAlert } from "../utils/twilio.js";
+
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
@@ -36,7 +38,10 @@ const loginUser = asyncHandler(async (req, res) => {
 
     const foodItems = await FoodItem.find({ user: user._id });
 
-    // Update status for all food items and include them in the response
+    let expiringSoonItems = [];
+    let expiredItems = [];
+
+    // Update status for all food items
     const updatedFoodItems = await Promise.all(
         foodItems.map(async (item) => {
             const today = new Date();
@@ -45,9 +50,15 @@ const loginUser = asyncHandler(async (req, res) => {
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
             let newStatus = "";
-            if (diffDays > 7) newStatus = "good";
-            else if (diffDays <= 7 && diffDays >= 0) newStatus = "expiring soon";
-            else newStatus = "expired";
+            if (diffDays > 7) {
+                newStatus = "good";
+            } else if (diffDays <= 7 && diffDays >= 0) {
+                newStatus = "expiring soon";
+                expiringSoonItems.push(item.name);
+            } else {
+                newStatus = "expired";
+                expiredItems.push(item.name);
+            }
 
             // Update the database only if the status has changed
             if (item.status !== newStatus) {
@@ -58,7 +69,6 @@ const loginUser = asyncHandler(async (req, res) => {
                 );
             }
 
-            // Always return the food item with its updated status
             return { ...item._doc, status: newStatus };
         })
     );
@@ -70,6 +80,25 @@ const loginUser = asyncHandler(async (req, res) => {
         secure: true,
     };
 
+    try {
+        // Construct the Twilio message
+        let message = `Dear consumer,`;
+        if (expiringSoonItems.length > 0) {
+            message += ` your following food items are expiring soon: ${expiringSoonItems.join(", ")}.`;
+        }
+        if (expiredItems.length > 0) {
+            message += ` Your following food items have expired: ${expiredItems.join(", ")}.`;
+        }
+        if (expiringSoonItems.length === 0 && expiredItems.length === 0) {
+            message = `Dear consumer, all your food items are in good condition.`;
+        }
+
+        // Send SMS to the user's phone number
+        await sendTwilioAlert(loggedInUser.phone, message);
+    } catch (error) {
+        console.error("Failed to send Twilio alert:", error.message);
+    }
+
     return res
         .status(200)
         .cookie("accessToken", accessToken, options)
@@ -79,19 +108,20 @@ const loginUser = asyncHandler(async (req, res) => {
                 {
                     loggedInUser,
                     accessToken,
-                    updatedFoodItems, // Return all food items
+                    updatedFoodItems,
                 },
                 "User logged in successfully"
             )
         );
 });
 
+
 const getFoodItems = asyncHandler(async (req, res) => {
-    const userId = req.user._id; // Assuming `req.user` is populated by authentication middleware
+    const userId = req.user._id;
 
     const foodItems = await FoodItem.find({ user: userId });
 
-    // Update statuses for all food items
+    // Update statuses and send alerts
     const updatedFoodItems = await Promise.all(
         foodItems.map(async (item) => {
             const today = new Date();
@@ -110,14 +140,27 @@ const getFoodItems = asyncHandler(async (req, res) => {
                     { $set: { status: newStatus } },
                     { new: true }
                 );
+
+                // Send alert for expiring food items
+                if (newStatus === "expiring soon") {
+                    try {
+                        const message = `Reminder: Your food item "${item.name}" is expiring soon!`;
+                        await sendTwilioAlert(req.user.phone, message);
+                    } catch (error) {
+                        console.error("Failed to send Twilio alert:", error.message);
+                    }
+                }
             }
 
             return { ...item._doc, status: newStatus };
         })
     );
 
-    return res.status(200).json(new ApiResponse(200, updatedFoodItems, "Food items fetched successfully"));
+    return res
+        .status(200)
+        .json(new ApiResponse(200, updatedFoodItems, "Food items fetched successfully"));
 });
+
 
 const addFoodItem = asyncHandler(async (req, res) => {
     const updateFoodItemStatus = (expiryDate) => {
