@@ -26,7 +26,6 @@ const Header = () => {
         <h1 className="text-7xl font-bold text-green-900">NourishAI</h1>
       </div>
       </div>
-     
   );
 };
 

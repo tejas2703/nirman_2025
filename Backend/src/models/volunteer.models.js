@@ -1,30 +1,25 @@
-import mongoose from "mongoose"
-import { Schema } from "mongoose"
+import mongoose,{Schema} from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-
-const userSchema = new mongoose.Schema({
-    
+const volunteerSchema = new mongoose.Schema({
+    name: {
+        type: String,
+        required: true
+    },
     email: {
         type: String,
-        required: true,
-        unique: true,
-        index: true
+        required: true
     },
     password: {
         type: String,
-        required: true,    
+        required: true
     },
-    phone: {
+    pincode: {
         type: String,
-        required: true,
     }
-}, {
-    timestamps: true
-}) 
+}, { timestamps:true })
 
-//mongoose middleware hooks
-userSchema.pre( //pre middleware-event to write a function before saving the document -plugins
+volunteerSchema.pre( //pre middleware-event to write a function before saving the document -plugins
     "save",  //type of document middleware , querry middleware - findOne etc.
     async function(next){
         if(this.isModified("password")){
@@ -42,11 +37,11 @@ userSchema.pre( //pre middleware-event to write a function before saving the doc
     }
 );
 
-userSchema.methods.isPasswordCorrect = async function(password) {
+volunteerSchema.methods.isPasswordCorrect = async function(password) {
     return await bcrypt.compare(password, this.password);
 }
 
-userSchema.methods.generateAccessToken = function() {
+volunteerSchema.methods.generateAccessToken = function() {
     return jwt.sign({   //payload
         _id: this._id,
         email: this.email,
@@ -60,4 +55,4 @@ userSchema.methods.generateAccessToken = function() {
 )
 }
 
-export const User = mongoose.model("User", userSchema)
+export const Volunteer = mongoose.model("Volunteer", volunteerSchema)
