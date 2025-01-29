@@ -1,9 +1,13 @@
 import twilio from "twilio";
 import {ApiError} from "./ApiError.js";
+import dotenv from 'dotenv';
+dotenv.config({
+    path: './.env'
+});
 
-const TWILIO_ACCOUNT_SID = 'ACede0c0f86268722bc97d2b3ad5a520c8';
-const TWILIO_AUTH_TOKEN = 'd11e190a5527a2cbbc5e0d6ee1328f6e';
-const TWILIO_PHONE_NUMBER = '+18454069559';
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER;
 
 const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 
