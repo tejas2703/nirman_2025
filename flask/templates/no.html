@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Waste Prediction</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>Food Waste Prediction</h2>
+        <form action="/" method="POST">
+            <label for="food_type">Food Type:</label>
+            <select name="food_type" id="food_type" required>
+                <option value="" disabled selected>Select Food Type</option>
+                {% for food in ['Khichdi', 'Pakora', 'Samosa', 'Biryani', 'Curry', 'Dosa', 'Paratha', 'Pulao', 
+                               'Pav Bhaji', 'Thali', 'Naan', 'Dal Makhani', 'Butter Chicken', 'Palak Paneer',
+                               'Chole Bhature', 'Vada Pav', 'Idli', 'Uttapam'] %}
+                    <option value="{{ food }}">{{ food }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="weather">Weather Condition:</label>
+            <select name="weather" id="weather" required>
+                <option value="" disabled selected>Select Weather Condition</option>
+                {% for weather in ['Light Rain', 'Moderate Rain', 'Heavy Rain', 'Clear', 'Cloudy', 'Sunny', 
+                                   'Humid', 'Windy', 'Stormy', 'Pleasant'] %}
+                    <option value="{{ weather }}">{{ weather }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="festival">Festival:</label>
+            <select name="festival" id="festival" required>
+                <option value="None" selected>None</option>
+                {% for festival in ['Diwali', 'Holi', 'Eid', 'Christmas', 'New Year', 'Navratri', 
+                                    'Durga Puja', 'Local Fair', 'Food Festival'] %}
+                    <option value="{{ festival }}">{{ festival }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="is_weekend">Is it a Weekend?</label>
+            <input type="checkbox" name="is_weekend" id="is_weekend">
+
+            <label for="quantity_prepared">Quantity Prepared (kg):</label>
+            <input type="number" step="0.01" name="quantity_prepared" id="quantity_prepared" required>
+
+            <label for="quantity_wasted">Quantity Wasted (kg):</label>
+            <input type="number" step="0.01" name="quantity_wasted" id="quantity_wasted" required>
+
+            <label for="prev_quantity_prepared">Previous Quantity Prepared (kg):</label>
+            <input type="number" step="0.01" name="prev_quantity_prepared" id="prev_quantity_prepared" required>
+
+            <label for="prev_quantity_wasted">Previous Quantity Wasted (kg):</label>
+            <input type="number" step="0.01" name="prev_quantity_wasted" id="prev_quantity_wasted" required>
+
+            <button type="submit">Predict Adjustment</button>
+        </form>
+
+        {% if result %}
+        <div class="result">
+            <h3>Prediction Result:</h3>
+            <p><strong>Adjustment:</strong> {{ result.predicted_adjustment }}</p>
+            <p><strong>Confidence:</strong> {{ (result.confidence * 100) | round(2) }}%</p>
+            <h4>All Probabilities:</h4>
+            <ul>
+                {% for key, value in result.all_probabilities.items() %}
+                    <li>{{ key }}: {{ (value * 100) | round(2) }}%</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

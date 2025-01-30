@@ -30,9 +30,11 @@ const Sidebar = () => {
           </Link>
 
           <li className="flex items-center hover:text-green-400 cursor-pointer transition duration-200">
-            <IoAnalytics className="mr-3 text-2xl" />
-            Real-time Analysis
-          </li>
+              <a href="http://127.0.0.1:6969/" target="_blank" rel="noopener noreferrer" className="flex items-center">
+              <IoAnalytics className="mr-3 text-2xl" />
+                Real-time Analysis
+              </a>
+            </li>
            
         
           <li className="flex items-center hover:text-green-400 cursor-pointer transition duration-200">
