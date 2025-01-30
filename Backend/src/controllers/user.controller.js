@@ -2,6 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.models.js";
 import { FoodItem } from "../models/foodItems.models.js"
+import { SingleMeal } from "../models/singleMeal.models.js";
 //import { uploadToCloudinary  } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
@@ -20,8 +21,6 @@ const generateAccessToken = async(userId) => {
     }
 } 
 
-import { sendTwilioAlert } from "../utils/twilio.js";
-
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
@@ -38,10 +37,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
     const foodItems = await FoodItem.find({ user: user._id });
 
-    let expiringSoonItems = [];
-    let expiredItems = [];
-
-    // Update status for all food items
+    // Update status for all food items and include them in the response
     const updatedFoodItems = await Promise.all(
         foodItems.map(async (item) => {
             const today = new Date();
@@ -50,15 +46,9 @@ const loginUser = asyncHandler(async (req, res) => {
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
             let newStatus = "";
-            if (diffDays > 7) {
-                newStatus = "good";
-            } else if (diffDays <= 7 && diffDays >= 0) {
-                newStatus = "expiring soon";
-                expiringSoonItems.push(item.name);
-            } else {
-                newStatus = "expired";
-                expiredItems.push(item.name);
-            }
+            if (diffDays > 7) newStatus = "good";
+            else if (diffDays <= 7 && diffDays >= 0) newStatus = "expiring soon";
+            else newStatus = "expired";
 
             // Update the database only if the status has changed
             if (item.status !== newStatus) {
@@ -69,6 +59,7 @@ const loginUser = asyncHandler(async (req, res) => {
                 );
             }
 
+            // Always return the food item with its updated status
             return { ...item._doc, status: newStatus };
         })
     );
@@ -80,25 +71,6 @@ const loginUser = asyncHandler(async (req, res) => {
         secure: true,
     };
 
-    try {
-        // Construct the Twilio message
-        let message = `Dear consumer,`;
-        if (expiringSoonItems.length > 0) {
-            message += ` your following food items are expiring soon: ${expiringSoonItems.join(", ")}.`;
-        }
-        if (expiredItems.length > 0) {
-            message += ` Your following food items have expired: ${expiredItems.join(", ")}.`;
-        }
-        if (expiringSoonItems.length === 0 && expiredItems.length === 0) {
-            message = `Dear consumer, all your food items are in good condition.`;
-        }
-
-        // Send SMS to the user's phone number
-        await sendTwilioAlert(loggedInUser.phone, message);
-    } catch (error) {
-        console.error("Failed to send Twilio alert:", error.message);
-    }
-
     return res
         .status(200)
         .cookie("accessToken", accessToken, options)
@@ -108,20 +80,19 @@ const loginUser = asyncHandler(async (req, res) => {
                 {
                     loggedInUser,
                     accessToken,
-                    updatedFoodItems,
+                    updatedFoodItems, // Return all food items
                 },
                 "User logged in successfully"
             )
         );
 });
 
-
 const getFoodItems = asyncHandler(async (req, res) => {
-    const userId = req.user._id;
+    const userId = req.user._id; // Assuming `req.user` is populated by authentication middleware
 
     const foodItems = await FoodItem.find({ user: userId });
 
-    // Update statuses and send alerts
+    // Update statuses for all food items
     const updatedFoodItems = await Promise.all(
         foodItems.map(async (item) => {
             const today = new Date();
@@ -140,27 +111,14 @@ const getFoodItems = asyncHandler(async (req, res) => {
                     { $set: { status: newStatus } },
                     { new: true }
                 );
-
-                // Send alert for expiring food items
-                if (newStatus === "expiring soon") {
-                    try {
-                        const message = `Reminder: Your food item "${item.name}" is expiring soon!`;
-                        await sendTwilioAlert(req.user.phone, message);
-                    } catch (error) {
-                        console.error("Failed to send Twilio alert:", error.message);
-                    }
-                }
             }
 
             return { ...item._doc, status: newStatus };
         })
     );
 
-    return res
-        .status(200)
-        .json(new ApiResponse(200, updatedFoodItems, "Food items fetched successfully"));
+    return res.status(200).json(new ApiResponse(200, updatedFoodItems, "Food items fetched successfully"));
 });
-
 
 const addFoodItem = asyncHandler(async (req, res) => {
     const updateFoodItemStatus = (expiryDate) => {
@@ -207,4 +165,52 @@ const addFoodItem = asyncHandler(async (req, res) => {
     res.status(201).json(newFoodItem);
 });
 
-export { loginUser, addFoodItem, getFoodItems }
+const addSingleMeal = asyncHandler(async (req, res) => {
+    const { mealDescription, quantity, schedulePickUp } = req.body;
+
+    // Validate input
+    if (!(mealDescription && quantity && schedulePickUp)) {
+        throw new ApiError(400, "All fields are required");
+    }
+
+    // Create and save the new meal
+    const user = await User.findById(req.user._id);
+    console.log(user)
+    const newMeal = new SingleMeal({
+        mealDescription,
+        quantity,
+        schedulePickUp: new Date(schedulePickUp).toISOString(),
+        donor: req.user._id, // Attach user reference
+        pincode: user.pincode // Get the pincode of the user
+    });
+    console.log(newMeal)
+
+    await newMeal.save();
+
+    res.status(201).json(newMeal);
+});
+
+const getSingleMeals = asyncHandler(async (req, res) => {
+    const userId = req.user._id; // Assuming `req.user` is populated by authentication middleware
+
+    // Get the user's pincode
+    const user = await User.findById(userId);
+    const userPincode = user.pincode;
+
+    // Define the pincode range
+    // const minpincodeRange = userPincode - 2
+    // const maxincodeRange = userPincode - 2
+    // Find meals uploaded by users within the pincode range
+    const singleMeals = await SingleMeal.find({
+        user: { $ne: userId }, // Exclude meals uploaded by the user
+        // quantity: { $gte: 5 },
+                
+        // pincode: { $gte: minpincodeRange, $lte: maxincodeRange }
+    });
+    
+
+    return res.status(200).json(new ApiResponse(200, singleMeals, "Single meals fetched successfully"));
+});
+
+export { loginUser, addFoodItem, getFoodItems, addSingleMeal, getSingleMeals };
+

@@ -1,15 +1,15 @@
 import React, { useEffect } from 'react'
-import Navbar from '../../Components/Consumer/Navbar';
-import Sidebar from '../../Components/Consumer/sidebar';
-import Header_1 from "../../Components/Consumer/Header_1";
+import Navbar from '../../Components/Volunteer/Navbar'
+import Sidebar from '../../Components/Volunteer/Sidebar';
+import Header_1 from "../../Components/Volunteer/Header";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import Fridge from '../../Components/Consumer/Fridge';
+import Fridge from '../../Components/Volunteer/Fridge';
 
-import Analytics from "../../Components/Consumer/Analytics";
-import Consumer from '../../Components/Consumer/Consumer';
+import Analytics from "../../Components/Volunteer/Analytics";
+import Volunteer from '../../Components/Volunteer/Volunteer';
 
-const ConsumerPage = () => {
+const VolunteerPage = () => {
   useEffect(() => {
     const successMessage = localStorage.getItem("loginSuccess");
 
@@ -36,9 +36,9 @@ const ConsumerPage = () => {
           {/* Main content section with food items and AI Recipe */}
           <div className="grid grid-cols-3 gap-6 mt-6">
             <div className="col-span-2">
-             <Consumer/>
+             <Volunteer/>
             </div>
-            <Fridge />
+            {/* <Fridge /> */}
           </div>
 
           {/* Analytics component */}
@@ -52,4 +52,4 @@ const ConsumerPage = () => {
   )
 }
 
-export default ConsumerPage;
+export default VolunteerPage;

@@ -1,139 +1,101 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
-import { Ngo } from "../models/ngo.models.js"
-import { FoodDonation } from "../models/fooddonation.models.js";
-//import { uploadToCloudinary  } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import jwt from "jsonwebtoken";
-import mongoose from "mongoose";
+import {FoodItem } from "../models/foodItems.models.js"
+import { FoodDonation } from "../models/fooddonation.models.js";
+import { Volunteer } from "../models/volunteer.models.js"; 
 
-const generateAccessToken = async(userId) => {
+export const generateAccessToken = async(userId) => {
     try{
-        const user  = await Ngo.findById(userId);
+        const user = await Volunteer.findById(userId);
         const accessToken = user.generateAccessToken();
         // const refreshToken = user.generateRefreshToken();
         // user.refreshToken = refreshToken;
         await user.save({ validateBeforeSave: false});
         return { accessToken };
-}   catch (error) { 
+}   catch (error) {
         throw new ApiError(500, "Failed to generate tokens");
     }
 } 
 
-const loginNgoUser = asyncHandler(async(req, res) => {
-    const {email, password} = req.body;
-    if(!email){
-        throw new ApiError(400, "Email is required");
-    }
-    if(!password){
-        throw new ApiError(400, "Password is required");
-    }
-    const user = await Ngo.findOne({
-        email
-    })
-    if(!user){
-        throw new ApiError(404, "User not found, Unauthorised");
-    }
+const loginVolunteer = asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email) throw new ApiError(400, "Email is required");
+    if (!password) throw new ApiError(400, "Password is required");
+
+    const user = await Volunteer.findOne({ email });
+    if (!user) throw new ApiError(404, "User not found, Unauthorized");
+
     const isPasswordValid = await user.isPasswordCorrect(password);
-    if(!isPasswordValid){
-        throw new ApiError(401, "Invalid password");
-    }
-    const {accessToken} = await generateAccessToken(user._id)
-    const loggedInUser = await Ngo.findById(user._id).select("-password");
+    if (!isPasswordValid) throw new ApiError(401, "Invalid password");
+
+    const { accessToken } = await generateAccessToken(user._id);
+
+    const foodItems = await FoodItem.find({ user: user._id });
+
+    // Update status for all food items and include them in the response
+    const updatedFoodItems = await Promise.all(
+        foodItems.map(async (item) => {
+            const today = new Date();
+            const expiry = new Date(item.expiryDate);
+            const diffTime = expiry - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            let newStatus = "";
+            if (diffDays > 7) newStatus = "good";
+            else if (diffDays <= 7 && diffDays >= 0) newStatus = "expiring soon";
+            else newStatus = "expired";
+
+            // Update the database only if the status has changed
+            if (item.status !== newStatus) {
+                await FoodItem.findByIdAndUpdate(
+                    item._id,
+                    { $set: { status: newStatus } },
+                    { new: true }
+                );
+            }
+
+            // Always return the food item with its updated status
+            return { ...item._doc, status: newStatus };
+        })
+    );
+
+    const loggedInUser = await Volunteer.findById(user._id).select("-password");
+
     const options = {
         httpOnly: true,
-        secure: true
-    }
-    return res.status(200)
-    .cookie("accessToken", accessToken, options)
-    // .cookie("refreshToken", refreshToken, options)  
-    .json(
-        new ApiResponse(200, 
-            {
-                user: loggedInUser, accessToken
-            },
-            "User logged in successfully")
-    )
-})
+        secure: true,
+    };
 
-// const getFoodDonations = asyncHandler(async(req, res) => {
-//     const userId = req.user._id;
-//     const ngo = await Ngo.findById(userId);
-//     console.log(ngo);
-//     const ngoPincode = ngo.pincode;
-//     console.log(ngoPincode);
-//     const minPincode = ngoPincode - 5;
-//     console.log(minPincode);
-//     const maxPincode = ngoPincode + 5;
-//     console.log(maxPincode);
-
-//     const donationsNearBy = await FoodDonation.find({
-//         restaurantPincode: { $gte: minPincode, $lte: maxPincode },
-//         status: "Pending"
-//     });
-//     console.log(donationsNearBy)
-
-//     return res.status(200).json(
-//         new ApiResponse(200, donationsNearBy, "Food donations fetched successfully")
-//     );
-// });
-
-// const acceptDonation = asyncHandler(async (req, res) => {
-//     const { donationId } = req.body;
-//     const ngoId = req.user._id;
-
-//     // Ensure donationId is provided
-//     if (!donationId) throw new ApiError(400, "Donation ID is required");
-
-//     // Find the donation
-//     const donation = await FoodDonation.findById(donationId);
-//     if (!donation) throw new ApiError(404, "Donation not found");
-
-//     // Ensure the donation is still pending
-//     if (donation.status !== "Pending") {
-//         throw new ApiError(400, "Only pending donations can be accepted");
-//     }
-
-//     // Update the donation's status and assign the NGO
-//     donation.status = "Accepted";
-//     donation.volunteer = ngoId;
-//     await donation.save();
-
-//     return res.status(200).json(
-//         new ApiResponse(200, donation, "Donation accepted successfully")
-//     );
-// });
-
-// const rejectDonation = asyncHandler(async (req, res) => {
-//     const { donationId } = req.body;
-
-//     // Ensure donationId is provided
-//     if (!donationId) throw new ApiError(400, "Donation ID is required");
-
-//     // Find the donation to confirm it exists
-//     const donation = await FoodDonation.findById(donationId);
-//     if (!donation) throw new ApiError(404, "Donation not found");
-
-//     return res
-//         .status(200)
-//         .json(new ApiResponse(200, null, "Donation removed from your view"));
-// });
-
-const donationRequest = asyncHandler(async(req,res) => {
-})
+    return res
+        .status(200)
+        .cookie("accessToken", accessToken, options)
+        .json(
+            new ApiResponse(
+                200,
+                {
+                    loggedInUser,
+                    accessToken,
+                    updatedFoodItems, // Return all food items
+                },
+                "User logged in successfully"
+            )
+        );
+});
 
 // Get all food donations
 const getAllFoodDonations = asyncHandler(async (req, res) => {
-    const { ngoId } = req.query;
+    const { volunteerId } = req.query;
 
-    if (!ngoId) {
-        throw new ApiError(400, "Ngo ID is required");
+    if (!volunteerId) {
+        throw new ApiError(400, "Volunteer ID is required");
     }
 
     // Check if the volunteer exists
-    const ngo = await Ngo.findById(ngoId);
-    if (!ngo) {
-        throw new ApiError(404, "Ngo not found");
+    const volunteer = await Volunteer.findById(volunteerId);
+    if (!volunteer) {
+        throw new ApiError(404, "Volunteer not found");
     }
 
     // Fetch all food donations with "Pending" status
@@ -148,21 +110,21 @@ const getAllFoodDonations = asyncHandler(async (req, res) => {
 // Accept food donation by volunteer
 const acceptFoodDonation = asyncHandler(async (req, res) => {
     const { donationId } = req.params; // Donation ID from URL
-    const { ngoId } = req.body; // Volunteer ID from request body
+    const { volunteerId } = req.body; // Volunteer ID from request body
 
-    if (!(donationId && ngoId)) {
-        throw new ApiError(400, "Donation ID and ngoId ID are required");
+    if (!(donationId && volunteerId)) {
+        throw new ApiError(400, "Donation ID and Volunteer ID are required");
     }
 
     // Check if the volunteer exists
-    const ngo = await Ngo.findById(ngoId);
-    if (!ngo) {
-        throw new ApiError(404, "ngo not found");
+    const volunteer = await Volunteer.findById(volunteerId);
+    if (!volunteer) {
+        throw new ApiError(404, "Volunteer not found");
     }
 
     // Check if the volunteer already has an active donation (i.e., "Accepted" or "Out for Delivery")
     const existingDonation = await FoodDonation.findOne({
-        acceptedById: ngoId,
+        acceptedById: volunteerId,
         status: { $in: ["Accepted", "Out for Delivery"] }, // Ongoing donations
     });
 
@@ -184,7 +146,7 @@ const acceptFoodDonation = asyncHandler(async (req, res) => {
 
     // Assign the volunteer and update status
     foodDonation.status = "Accepted";
-    foodDonation.acceptedById = ngoId;
+    foodDonation.acceptedById = volunteerId;
     await foodDonation.save();
 
     return res.status(200).json(new ApiResponse(200, foodDonation, "Food donation accepted successfully"));
@@ -212,20 +174,20 @@ const rejectFoodDonation = asyncHandler(async (req, res) => {
 });
 
 const getDonationHistory = asyncHandler(async(req, res) => {
-    const ngoId  = req.user._id;
+    const volunteerId  = req.user._id;
 
-    if (!ngoId) {
-        throw new ApiError(400, "ngoId ID is required");
+    if (!volunteerId) {
+        throw new ApiError(400, "Volunteer ID is required");
     }
 
     // Check if the volunteer exists
-    const ngo = await Ngo.findById(ngoId);
-    if (!ngo) {
-        throw new ApiError(404, "ngo not found");
+    const volunteer = await Volunteer.findById(volunteerId);
+    if (!volunteer) {
+        throw new ApiError(404, "Volunteer not found");
     }
 
     // Fetch all donations accepted by the volunteer
-    const donationHistory = await FoodDonation.find({ acceptedById: ngoId })
+    const donationHistory = await FoodDonation.find({ acceptedById: volunteerId })
         .populate("restaurantUser", "name")
         .sort({ createdAt: -1 });
 
@@ -233,20 +195,20 @@ const getDonationHistory = asyncHandler(async(req, res) => {
 })
 
 const getActiveDonation = asyncHandler(async(req, res) => {
-    const ngoId  = req.user._id;
+    const volunteerId  = req.user._id;
 
-    if (!ngoId) {
-        throw new ApiError(400, "ngo ID is required");
+    if (!volunteerId) {
+        throw new ApiError(400, "Volunteer ID is required");
     }
 
     // Check if the volunteer exists
-    const ngo = await Ngo.findById(ngoId);
-    if (!ngo) {
-        throw new ApiError(404, "ngo not found");
+    const volunteer = await Volunteer.findById(volunteerId);
+    if (!volunteer) {
+        throw new ApiError(404, "Volunteer not found");
     }
     // Fetch the active donation for the volunteer
     const activeDonation = await FoodDonation.findOne({
-        acceptedById: ngoId,
+        acceptedById: volunteerId,
         status: { $in: ["Accepted", "Out for Delivery"] },
     })
     // .populate("restaurantUser", "name");
@@ -260,8 +222,10 @@ const getActiveDonation = asyncHandler(async(req, res) => {
     //     .sort({ createdAt: -1 });
 
     return res.status(200).json(new ApiResponse(200, activeDonation, "Donation history fetched successfully"));
-})
+})    
 
+
+// Controller for updating the status of a donation
 const updateDonationStatus = async (req, res) => {
     const { donationId } = req.params; // Get the donation ID from the URL parameters
     const { status } = req.body; // Get the new status from the request body
@@ -290,4 +254,4 @@ const updateDonationStatus = async (req, res) => {
       res.status(500).json({ message: 'Server error' });
     }
   };
-export { loginNgoUser, getAllFoodDonations, rejectFoodDonation, acceptFoodDonation, getDonationHistory, getActiveDonation, donationRequest, updateDonationStatus } 
+export { loginVolunteer, getAllFoodDonations, rejectFoodDonation, acceptFoodDonation, getDonationHistory, getActiveDonation,updateDonationStatus }
