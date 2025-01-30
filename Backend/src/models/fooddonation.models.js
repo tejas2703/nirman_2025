@@ -34,13 +34,19 @@ const foodDonationSchema = new mongoose.Schema({
         ref: "Restaurant",
         required: true
     },
-    volunteer: {
-        type: Schema.Types.ObjectId,
-        ref: "Volunteer"
+    // volunteer: {
+    //     type: Schema.Types.ObjectId,
+    //     ref: "Volunteer"
+    // },
+    acceptedById: {
+        type: String
+    },
+    acceptedBy: {
+        type: String 
     },
     status: { 
         type: String, 
-        enum: ["Pending", "Accepted", "Out for Delivery", "Completed", "Expired"], 
+        enum: ["Pending", "Accepted", "Out for Delivery", "Delivered", "Expired"], 
         default: "Pending" 
     }
 }, {
